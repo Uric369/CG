@@ -102,6 +102,19 @@ int main()
     };
     Room room(roomWidth, roomHeight, roomDepth, texturePaths);
 
+    std::vector<Model> tumblers;
+    // List of offsets for each tumbler
+    std::vector<glm::vec3> offsets = {
+        glm::vec3(0.0f,  0.0f, 0.0f),
+        glm::vec3(0.0f, -4.0f, 0.0f),
+        glm::vec3(-4.0f, -4.0f, 4.0f),
+        glm::vec3(4.0f, -4.0f, 4.0f)
+    };
+    glm::vec3 commonScale(40.0f);
+    for (const auto& offset : offsets) {
+        tumblers.emplace_back("./model/tumbler.obj", false, commonScale, offset);
+    }
+
     // load textures
     // -------------
     unsigned int woodTexture = loadTexture("./texture.jpg");
@@ -187,6 +200,10 @@ int main()
         simpleDepthShader.setVec3("lightPos", lightPos);
         renderScene(simpleDepthShader);
         room.Draw(simpleDepthShader);
+        for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+            it->updateWobbling(deltaTime);
+            it->Draw(simpleDepthShader);
+        }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -210,6 +227,9 @@ int main()
         glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
         renderScene(shader);
         room.Draw(shader);
+        for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+            it->Draw(shader);
+        }
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

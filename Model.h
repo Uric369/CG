@@ -22,6 +22,7 @@
 #include <vector>
 using namespace std;
 
+
 unsigned int TextureFromFile(const char* path, const string& directory, bool gamma = false);
 
 class Model
@@ -32,21 +33,69 @@ public:
     vector<Mesh>    meshes;
     string directory;
     bool gammaCorrection;
+    glm::vec3 scale;        // scale factor (scaling in x, y, z)
+    glm::vec3 offset;       // offset (translation in x, y, z)
 
     // constructor, expects a filepath to a 3D model.
-    Model(string const& path, bool gamma = false) : gammaCorrection(gamma)
+    Model(string const& path, bool gamma = false, glm::vec3 scale = glm::vec3(1.0f), glm::vec3 offset = glm::vec3(0.0f))
+        : gammaCorrection(gamma), scale(scale), offset(offset)
     {
         loadModel(path);
     }
 
-    // draws the model, and thus all its meshes
+    // Update the wobbling effect of the object around the Z-axis
+    void updateWobbling(float deltaTime) {
+
+        // Calculate angular acceleration based on the differential equation
+        // d^2(theta)/dt^2 + b*d(theta)/dt + k*theta = 0
+        // Neglecting mass (m) as it cancels out during the equation derivation for a pendulum
+        alpha = (-k * theta - b * omega) / I;
+
+        // Update angular velocity and angle using Euler's method
+        omega += alpha * deltaTime;
+        theta += omega * deltaTime;
+
+        // If the angular velocity is close to zero and the object is at the bottom (theta ~ 0)
+        // we assume it has stopped wobbling due to damping
+        if (abs(omega) < 0.01 && abs(theta) < 0.01) {
+            omega = 0.0f;
+            theta = 0.0f;
+            isWobbling = false; // The wobbling has stopped
+        }
+    }
+
     void Draw(Shader& shader)
     {
-        for (unsigned int i = 0; i < meshes.size(); i++)
+        for (unsigned int i = 0; i < meshes.size(); i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, offset);  // apply translation (offset)
+            model = glm::scale(model, scale);       // apply scaling
+
+            // Apply the wobbling effect as an additional rotation around the Z-axis
+            glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate around Z-axis
+
+            // Combine the transformation
+            model = model * rotation; // No need for an additional translation in this case
+
+            // set the model matrix in the shader
+            shader.setMat4("model", model);
+
+            // Draw the mesh with the applied model matrix
             meshes[i].Draw(shader);
+        }
     }
 
 private:
+    // Wobbling properties
+    float theta = 0.2f; // Current angle of wobble (in radians)
+    float omega = 2.0f; // Current angular velocity (in radians per second)
+    float b = 0.05f;     // Damping coefficient
+    float k = 2.0f;     // Spring constant for restoring torque
+    float I = 0.5f;     // Moment of inertia
+    // float deltaTime = 0.016f; // Time step for the simulation (1/60 seconds for 60FPS)
+    bool isWobbling = true;
+    float alpha;
+
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
     void loadModel(string const& path)
     {
@@ -243,4 +292,6 @@ unsigned int TextureFromFile(const char* path, const string& directory, bool gam
 
     return textureID;
 }
+
+
 #endif
