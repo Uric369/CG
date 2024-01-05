@@ -1,8 +1,11 @@
 ﻿  main.cpp
-F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(42,15): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
-F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(43,16): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\Light.h(53,25): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\Light.h(58,27): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\Light.h(98,50): warning C4267: “参数”: 从“size_t”转换到“GLsizei”，可能丢失数据
 F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(44,15): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
-F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(103,38): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(103,26): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(103,15): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(45,16): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(46,15): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(107,38): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(107,26): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+F:\Computer Graphics\LearnOpenGL\PointShadow\PointShadow\main.cpp(107,15): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
   PointShadow.vcxproj -> F:\Computer Graphics\LearnOpenGL\PointShadow\x64\Debug\PointShadow.exe

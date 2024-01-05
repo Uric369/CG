@@ -21,6 +21,9 @@
     <ClCompile Include="glad.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ParticleGenerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader.h">
@@ -41,6 +44,12 @@
     <ClInclude Include="Room.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleGenerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="3.2.2.point_shadows.vs" />
@@ -48,5 +57,9 @@
     <None Include="3.2.2.point_shadows_depth.vs" />
     <None Include="3.2.2.point_shadows_depth_fs.vs" />
     <None Include="3.2.2.point_shadows_depth.gs" />
+    <None Include="particle.vs" />
+    <None Include="particle_fs.vs" />
+    <None Include="light.vs" />
+    <None Include="light_fs.vs" />
   </ItemGroup>
 </Project>

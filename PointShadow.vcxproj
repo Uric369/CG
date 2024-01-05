@@ -134,11 +134,14 @@
   <ItemGroup>
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ParticleGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Light.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="ParticleGenerator.h" />
     <ClInclude Include="Room.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
@@ -149,6 +152,10 @@
     <None Include="3.2.2.point_shadows_depth.vs" />
     <None Include="3.2.2.point_shadows_depth_fs.vs" />
     <None Include="3.2.2.point_shadows_fs.vs" />
+    <None Include="light.vs" />
+    <None Include="light_fs.vs" />
+    <None Include="particle.vs" />
+    <None Include="particle_fs.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

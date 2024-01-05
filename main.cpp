@@ -12,6 +12,8 @@
 #include "Camera.h"
 #include "Model.h"
 #include "Room.h"
+#include "ParticleGenerator.h"
+#include "Light.h"
 
 #include <iostream>
 
@@ -92,6 +94,8 @@ int main()
     // -------------------------
     Shader shader("3.2.2.point_shadows.vs", "3.2.2.point_shadows_fs.vs");
     Shader simpleDepthShader("3.2.2.point_shadows_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
+    Shader particleShader("particle.vs", "particle_fs.vs");
+    Shader lightShader("light.vs", "light_fs.vs");
     std::vector<const char*> texturePaths = {
     "./texture.jpg",
     "./texture.jpg",
@@ -101,6 +105,11 @@ int main()
     "./wall.png",
     };
     Room room(roomWidth, roomHeight, roomDepth, texturePaths);
+    // lighting info
+// -------------
+    glm::vec3 lightPos(0.0f, roomHeight / 2.0f - 0.5f, 0.0f);
+
+    Light light(lightPos, 2.0f);
 
     std::vector<Model> tumblers;
     // List of offsets for each tumbler
@@ -114,6 +123,11 @@ int main()
     for (const auto& offset : offsets) {
         tumblers.emplace_back("./model/tumbler.obj", false, commonScale, offset);
     }
+
+    ParticleGenerator particleGenerator(particleShader, "./fire.jpg", 500);
+    // Initialize EmitterState with start position, velocity, and dampening
+    EmitterState emitterState(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
+
 
     // load textures
     // -------------
@@ -149,10 +163,6 @@ int main()
     shader.setInt("diffuseTexture", 0);
     shader.setInt("depthMap", 1);
 
-    // lighting info
-    // -------------
-    glm::vec3 lightPos(0.0f, roomHeight / 2.0f - 0.5f, 0.0f);
-
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -169,11 +179,15 @@ int main()
 
         // move light position over time
         // lightPos.z = static_cast<float>(sin(glfwGetTime() * 0.5) * 3.0);
-
+        // Update ParticleGenerator
+       
         // render
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        particleGenerator.Update(deltaTime, emitterState, 2, glm::vec3(0.0f));
+        particleGenerator.Draw();
 
         // 0. create depth cubemap transformation matrices
         // -----------------------------------------------
@@ -230,6 +244,15 @@ int main()
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
             it->Draw(shader);
         }
+
+        lightShader.use();
+        lightShader.setVec3("aPos", lightPos);
+        lightShader.setMat4("model", glm::mat4(1.0f)); // Replace with your actual model matrix
+        lightShader.setMat4("view", view); // Replace with your actual view matrix
+        lightShader.setMat4("projection", projection); // Replace with your actual projection matrix
+        // add time component to geometry shader in the form of a uniform
+        light.draw();
+
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
