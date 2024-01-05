@@ -50,6 +50,9 @@
     <ClInclude Include="Light.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Ball.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="3.2.2.point_shadows.vs" />
@@ -61,5 +64,7 @@
     <None Include="particle_fs.vs" />
     <None Include="light.vs" />
     <None Include="light_fs.vs" />
+    <None Include="ball.vs" />
+    <None Include="ball_depth.vs" />
   </ItemGroup>
 </Project>

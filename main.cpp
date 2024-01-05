@@ -14,6 +14,7 @@
 #include "Room.h"
 #include "ParticleGenerator.h"
 #include "Light.h"
+#include "Ball.h"
 
 #include <iostream>
 
@@ -24,6 +25,10 @@ void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderScene(const Shader& shader);
 void renderCube();
+void collision_detection(Ball& ball, Model& model);
+bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal);
+bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball);
+glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -96,6 +101,8 @@ int main()
     Shader simpleDepthShader("3.2.2.point_shadows_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
     Shader particleShader("particle.vs", "particle_fs.vs");
     Shader lightShader("light.vs", "light_fs.vs");
+    Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
+    Shader ballShader("ball.vs", "3.2.2.point_shadows_fs.vs");
     std::vector<const char*> texturePaths = {
     "./texture.jpg",
     "./texture.jpg",
@@ -114,16 +121,18 @@ int main()
     std::vector<Model> tumblers;
     // List of offsets for each tumbler
     std::vector<glm::vec3> offsets = {
-        glm::vec3(0.0f,  0.0f, 0.0f),
-        glm::vec3(0.0f, -4.0f, 0.0f),
-        glm::vec3(-4.0f, -4.0f, 4.0f),
-        glm::vec3(4.0f, -4.0f, 4.0f)
+        glm::vec3(-4.0f,  9.0f, 0.0f),
+        glm::vec3(4.0f, -5.0f, 0.0f),
+        glm::vec3(-4.0f, -5.0f, 4.0f),
+        glm::vec3(4.0f, -5.0f, 4.0f)
     };
     glm::vec3 commonScale(40.0f);
+    // glm::vec3 commonScale(1.0f);
     for (const auto& offset : offsets) {
         tumblers.emplace_back("./model/tumbler.obj", false, commonScale, offset);
     }
 
+    Ball ball(glm::vec3(-4.0f, 9.0f, 4.0f), glm::vec3(0.0f, -0.3f, 0.0f), 1.0f, "./ball.png");
     ParticleGenerator particleGenerator(particleShader, "./fire.jpg", 500);
     // Initialize EmitterState with start position, velocity, and dampening
     EmitterState emitterState(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
@@ -212,12 +221,16 @@ int main()
             simpleDepthShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
         simpleDepthShader.setFloat("far_plane", far_plane);
         simpleDepthShader.setVec3("lightPos", lightPos);
+        shader.setVec3("displacement", glm::vec3(0.0f, 0.0f, 0.0f));
         renderScene(simpleDepthShader);
         room.Draw(simpleDepthShader);
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
             it->updateWobbling(deltaTime);
             it->Draw(simpleDepthShader);
         }
+        std::cout << "当前时间：currentTime " << currentFrame;
+        ball.applyPhysics(deltaTime);
+        ball.draw(simpleDepthShader);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -235,6 +248,7 @@ int main()
         shader.setVec3("viewPos", camera.Position);
         shader.setInt("shadows", shadows); // enable/disable shadows by pressing 'SPACE'
         shader.setFloat("far_plane", far_plane);
+        shader.setVec3("displacement", glm::vec3(0.0f, 0.0f, 0.0f));
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, woodTexture);
         glActiveTexture(GL_TEXTURE1);
@@ -244,6 +258,7 @@ int main()
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
             it->Draw(shader);
         }
+        ball.draw(shader);
 
         lightShader.use();
         lightShader.setVec3("aPos", lightPos);
@@ -253,6 +268,10 @@ int main()
         // add time component to geometry shader in the form of a uniform
         light.draw();
 
+
+        for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+            collision_detection(ball, *it);
+        }
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -380,4 +399,98 @@ unsigned int loadTexture(char const* path)
     }
 
     return textureID;
+}
+
+void collision_detection(Ball& ball, Model& model) {
+    // 获取子弹（球体）的半径和中心位置
+    float radius = ball.getRadius();
+    glm::vec3 ball_center = ball.getPosition();
+    // std::cout << "当前小球位置： " << ball_center.x << " " << ball_center.y << " " << ball_center.z << std::endl;
+
+       if (model.isSphereBoundingBoxIntersectingAABB(ball_center, radius)) {
+
+        // 遍历模型中的每个网格(mesh)
+        for (Mesh& mesh : model.meshes) {
+            // 遍历每个网格的三角面片
+            for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
+                // 获取三角面片的顶点
+                glm::vec3 v1 = mesh.vertices[mesh.indices[i]].Position;
+                v1 = model.transformPoint(v1);
+                glm::vec3 v2 = mesh.vertices[mesh.indices[i + 1]].Position;
+                v2 = model.transformPoint(v2);
+                glm::vec3 v3 = mesh.vertices[mesh.indices[i + 2]].Position;
+                v3 = model.transformPoint(v3);
+                glm::vec3 mesh_normal = normalize(cross((v1 - v3), (v2 - v3)));
+                // glm::vec3 mesh_normal = normalize(mesh.vertices[mesh.indices[i]].Normal);
+                bool isReversed = dot(ball.getVelocity(), mesh_normal) < 0;
+                // std::cout << "ball_Center：" << ball_center.x << " " << ball_center.y << " " << ball_center.z << std::endl;
+                // std::cout << "v1：" << v1.x << " " << v1.y << " " << v1.z << std::endl;
+
+
+                if (isReversed && testSphereTriangle_test(ball_center, radius, v1, v2, v3, mesh_normal, ball)) {
+                    std::cout << "collison!!!" << std::endl;
+                    // ball.setActive(false);
+                    glm::vec3 oldspeed = ball.getVelocity();
+                    std::cout << "原速度：" << oldspeed.x << " " << oldspeed.y << " " << oldspeed.z << std::endl;
+                    glm::vec3 newspeed = reflectVec3(-ball.getVelocity(), mesh_normal);
+                    ball.setVelocity(newspeed);
+                    glm::vec3 pos = ball.getPosition();
+                    std::cout << "当前小球位置： " << pos.x << " " << pos.y << " " << pos.z << std::endl;
+                    
+                    // std::cout << "法向量：" << mesh_normal.x << " " << mesh_normal.y << " " << mesh_normal.z << std::endl;
+                    std::cout << "当前速度： " << newspeed.x << " " << newspeed.y << " " << newspeed.z << std::endl;
+                    return; // 发生碰撞，退出检测
+                }
+            }
+        }
+     }
+}
+
+// 检查球体和三角面片是否相交的函数
+bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3 &mesh_normal) {
+    // std::cout << "v1: " << v1.x << " " << v1.y << " " << v1.z << std::endl;
+    // 你需要实现这个函数，检测球体和三角面片是否相交
+    if (glm::distance(center, v1) > 2 * radius && glm::distance(center, v2) > 2 * radius && glm::distance(center, v3) > 2 * radius) {
+        return false;
+    }
+    else {
+        float distance = dot((center - v1), mesh_normal);
+        std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
+        if (distance < radius / 2.0f) {
+            glm::vec3 collision_point = center - distance * mesh_normal;
+            std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+// 检查球体和三角面片是否相交的函数
+bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball) {
+    // std::cout << "v1: " << v1.x << " " << v1.y << " " << v1.z << std::endl;
+    // 你需要实现这个函数，检测球体和三角面片是否相交
+    if (glm::distance(center, v1) > 2 * radius && glm::distance(center, v2) > 2 * radius && glm::distance(center, v3) > 2 * radius) {
+        return false;
+    }
+    else {
+        std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
+        float distance = dot((center - v1), mesh_normal);
+        std::cout << "distance: " << distance << std::endl;
+        if (distance < radius) {
+            glm::vec3 collision_point = center - distance * mesh_normal;
+            // ball.setActive(false);
+            std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
+            std::cout << "小球圆心：" << center.x << " " << center.y << " " << center.z << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B) {
+    glm::vec3 B_normalized = normalize(B); // 确保B是单位向量
+    float dotAB = dot(A, B_normalized);
+    glm::vec3 proj_AB = dotAB * B_normalized;
+    glm::vec3 C = (float)2.0 * proj_AB - A;
+    return C;
 }

@@ -35,6 +35,11 @@ public:
     bool gammaCorrection;
     glm::vec3 scale;        // scale factor (scaling in x, y, z)
     glm::vec3 offset;       // offset (translation in x, y, z)
+    glm::mat4 rotation;
+    glm::vec3 bboxMin = glm::vec3(FLT_MAX);
+    glm::vec3 bboxMax = glm::vec3(FLT_MIN);
+    glm::vec3 transformedMin;
+    glm::vec3 transformedMax;
 
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false, glm::vec3 scale = glm::vec3(1.0f), glm::vec3 offset = glm::vec3(0.0f))
@@ -62,27 +67,49 @@ public:
             theta = 0.0f;
             isWobbling = false; // The wobbling has stopped
         }
+
+        rotation = glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate around Z-axis
+        updateTransformedBoundingBox();
     }
 
     void Draw(Shader& shader)
     {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        // Combine the transformation
+        model = model * rotation; // No need for an additional translation in this case
+
+        // set the model matrix in the shader
+        shader.setMat4("model", model);
+        shader.setInt("reverse_normals", 0);
         for (unsigned int i = 0; i < meshes.size(); i++) {
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, offset);  // apply translation (offset)
-            model = glm::scale(model, scale);       // apply scaling
-
-            // Apply the wobbling effect as an additional rotation around the Z-axis
-            glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate around Z-axis
-
-            // Combine the transformation
-            model = model * rotation; // No need for an additional translation in this case
-
-            // set the model matrix in the shader
-            shader.setMat4("model", model);
-
             // Draw the mesh with the applied model matrix
             meshes[i].Draw(shader);
         }
+    }
+
+    bool isSphereBoundingBoxIntersectingAABB(const glm::vec3& sphereCenter, float sphereRadius) {
+        // 计算球体的包围盒
+        glm::vec3 sphereBBoxMin = sphereCenter - glm::vec3(sphereRadius);
+        glm::vec3 sphereBBoxMax = sphereCenter + glm::vec3(sphereRadius);
+
+        // 检查球体的包围盒是否与变换后的包围盒相交
+        return (sphereBBoxMin.x <= transformedMax.x && sphereBBoxMax.x >= transformedMin.x) &&
+            (sphereBBoxMin.y <= transformedMax.y && sphereBBoxMax.y >= transformedMin.y) &&
+            (sphereBBoxMin.z <= transformedMax.z && sphereBBoxMax.z >= transformedMin.z);
+    }
+
+    glm::vec3 transformPoint(const glm::vec3& point) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        // Combine the transformation
+        model = model * rotation; // No need for an additional translation in this case
+
+
+        glm::vec4 transformedPoint = model * glm::vec4(point, 1.0f); // 变换点
+        return glm::vec3(transformedPoint); // 转换回vec3
     }
 
 private:
@@ -113,6 +140,15 @@ private:
 
         // process ASSIMP's root node recursively
         processNode(scene->mRootNode, scene);
+
+        // 计算包围盒
+        for (unsigned int k = 0; k < meshes.size(); k++) {
+            for (unsigned int i = 0; i < meshes[k].vertices.size(); i++) {
+                glm::vec3 point = meshes[k].vertices[i].Position;
+                updateBoundingBox(point);
+            }
+        }
+        updateTransformedBoundingBox();
     }
 
     // processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
@@ -126,6 +162,7 @@ private:
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             meshes.push_back(processMesh(mesh, scene));
         }
+
         // after we've processed all of the meshes (if any) we then recursively process each of the children nodes
         for (unsigned int i = 0; i < node->mNumChildren; i++)
         {
@@ -250,6 +287,23 @@ private:
         }
         return textures;
     }
+    
+    void updateBoundingBox(const glm::vec3& point) {
+        bboxMin = glm::min(bboxMin, point);
+        bboxMax = glm::max(bboxMax, point);
+    }
+
+    void updateTransformedBoundingBox() {
+        transformedMin = transformPoint(bboxMin);
+        transformedMax = transformPoint(bboxMax);
+
+        glm::vec3 tmp = transformedMin;
+        transformedMin = glm::min(transformedMin, transformedMax);
+        transformedMax = glm::max(transformedMax, tmp);
+
+    }
+
+
 };
 
 
