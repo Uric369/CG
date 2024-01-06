@@ -40,14 +40,17 @@ public:
     glm::vec3 bboxMax = glm::vec3(FLT_MIN);
     glm::vec3 transformedMin;
     glm::vec3 transformedMax;
+    glm::vec3 direction;
     const float massCenter = 0.02f;
     unsigned int textureID;
+    
 
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false, glm::vec3 scale = glm::vec3(1.0f), glm::vec3 offset = glm::vec3(0.0f))
         : gammaCorrection(gamma), scale(scale), offset(offset)
     {
         loadModel(path);
+        direction = glm::vec3(0.6f, 0.0f, 0.8f);
     }
 
     // Update the wobbling effect of the object around the Z-axis
@@ -70,7 +73,7 @@ public:
             isWobbling = false; // The wobbling has stopped
         }
 
-        rotation = glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate around Z-axis
+        rotation = glm::rotate(glm::mat4(1.0f), theta, direction); // Rotate around Z-axis
         updateTransformedBoundingBox();
     }
 
@@ -114,7 +117,7 @@ public:
         model = glm::translate(model, offset);  // apply translation (offset)
         model = glm::scale(model, scale);       // apply scaling
         // Combine the transformation
-        model = model * glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // No need for an additional translation in this case
+        model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
 
 
         glm::vec4 transformedPoint = model * glm::vec4(point, 1.0f); // 变换点
@@ -128,12 +131,26 @@ public:
         model = glm::translate(model, offset);  // apply translation (offset)
         model = glm::scale(model, scale);       // apply scaling
         // Combine the transformation
-        model = model * glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // No need for an additional translation in this case
+        model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
 
         glm::vec3 transformedMassCenter = glm::vec3(model * glm::vec4(0.0f, massCenter, 0.0f, 1.0f)); // 变换点
 
-        glm::vec3 radius_velocity = glm::vec3(0.0f, 0.0f, omega);
-        return cross(radius_velocity, point - transformedMassCenter);
+        return cross(omega * direction, point - transformedMassCenter);
+    }
+
+    void setAngularSpeed(const glm::vec3 & speed, const glm::vec3& point, const glm::vec3& norm) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        // Combine the transformation
+        model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
+
+        glm::vec3 transformedMassCenter = glm::vec3(model * glm::vec4(0.0f, massCenter, 0.0f, 1.0f)); // 变换点
+
+        glm::vec3 arm = point - transformedMassCenter;
+        arm = arm - dot(arm, direction) * direction;
+        this->omega = glm::length(speed) / glm::length(arm);
+        this->direction = normalize(glm::vec3(norm.x, 0.0f, norm.z));
     }
 
     unsigned int getTexture() const {
@@ -142,10 +159,10 @@ public:
 
 private:
     // Wobbling properties
-    float theta = 1.0f; // Current angle of wobble (in radians)
+    float theta = 0.07f; // Current angle of wobble (in radians)
     float omega = 2.0f; // Current angular velocity (in radians per second)
     float b = 0.05f;     // Damping coefficient
-    float k = 2.0f;     // Spring constant for restoring torque
+    float k = 4.0f;     // Spring constant for restoring torque
     float I = 0.5f;     // Moment of inertia
     // float deltaTime = 0.016f; // Time step for the simulation (1/60 seconds for 60FPS)
     bool isWobbling = true;

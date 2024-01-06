@@ -32,7 +32,7 @@ void collision_detection(Ball& ball, Model& model);
 bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal);
 bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball);
 glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
-glm::vec3 reflectVec3_modified(glm::vec3 A, glm::vec3 B, glm::vec3 norm);
+void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm);
 std::vector<Ball> generateRandomBalls(int numBalls);
 
 // settings
@@ -241,7 +241,7 @@ int main()
         renderScene(simpleDepthShader);
         room.Draw(simpleDepthShader);
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
-            it->updateWobbling(0.0f);
+            it->updateWobbling(deltaTime);
             it->Draw(simpleDepthShader);
         }
         std::cout << "当前时间：currentTime " << currentFrame;
@@ -455,17 +455,20 @@ void collision_detection(Ball& ball, Model& model) {
                 if (isReversed && testSphereTriangle_test(ball_center, radius, v1, v2, v3, mesh_normal, ball)) {
                     std::cout << "collison!!!" << std::endl;
                     // ball.setActive(false);
-                    glm::vec3 oldspeed = ball.getVelocity();
-                    std::cout << "原速度：" << oldspeed.x << " " << oldspeed.y << " " << oldspeed.z << std::endl;
-                    glm::vec3 newspeed = reflectVec3_modified(ball.getVelocity(), model.getPointVelocity((v1 + v2 + v3) / 3.0f), mesh_normal);
-                    ball.setVelocity(newspeed);
+                    glm::vec3 ballVelocity = ball.getVelocity();
+                    glm::vec3 point = (v1 + v2 + v3) / 3.0f;
+                    glm::vec3 meshVelocity = model.getPointVelocity(point);
+                    // std::cout << "原速度：" << oldspeed.x << " " << oldspeed.y << " " << oldspeed.z << std::endl;
+                    reflectVec3_modified(ballVelocity, meshVelocity, mesh_normal);
+                    model.setAngularSpeed(meshVelocity, point, mesh_normal);
+                    ball.setVelocity(ballVelocity);
                     ball.setTexture(model.getTexture());
                     
                     glm::vec3 pos = ball.getPosition();
                     std::cout << "当前小球位置： " << pos.x << " " << pos.y << " " << pos.z << std::endl;
                     
                     // std::cout << "法向量：" << mesh_normal.x << " " << mesh_normal.y << " " << mesh_normal.z << std::endl;
-                    std::cout << "当前速度： " << newspeed.x << " " << newspeed.y << " " << newspeed.z << std::endl;
+                    // std::cout << "当前速度： " << newspeed.x << " " << newspeed.y << " " << newspeed.z << std::endl;
                     return; // 发生碰撞，退出检测
                 }
             }
@@ -523,29 +526,31 @@ glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B) {
 }
 
 
-glm::vec3 reflectVec3_modified(glm::vec3 A, glm::vec3 B, glm::vec3 norm) {
+void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm) {
     // 确保norm是单位向量
-    glm::vec3 norm_normalized = normalize(norm);
+    glm::vec3 norm_normalized = glm::normalize(norm);
 
     // 分解A和B为法线方向和切线方向的分量
-    float dotAnorm = dot(A, norm_normalized);
+    float dotAnorm = glm::dot(A, norm_normalized);
     glm::vec3 A_norm = dotAnorm * norm_normalized;
     glm::vec3 A_tang = A - A_norm;
 
-    float dotBnorm = dot(B, norm_normalized);
+    float dotBnorm = glm::dot(B, norm_normalized);
     glm::vec3 B_norm = dotBnorm * norm_normalized;
     glm::vec3 B_tang = B - B_norm;
 
-    // 非完全弹性碰撞
-    glm::vec3 C_norm = ((m_ball * A_norm + m_tumbler * B_norm + m_tumbler * e * (B_norm - A_norm)) / (m_ball + m_tumbler));
+    // 非完全弹性碰撞处理
+    glm::vec3 A_norm_after = A_norm - (1 + e) * m_tumbler * (A_norm - B_norm) / (m_tumbler + m_ball);
+    glm::vec3 B_norm_after = B_norm - (1 + e) * m_ball * (B_norm - A_norm) / (m_tumbler + m_ball);
 
     // 摩擦处理
-    glm::vec3 C_tang = A_tang + B_tang - friction * normalize(A_tang + B_tang);
+    glm::vec3 C_tang = A_tang + B_tang - friction * glm::normalize(A_tang + B_tang);
 
     // 结合法线方向和切线方向的速度
-    glm::vec3 C = C_norm + C_tang;
-
-    return C;
+    // A = A_norm_after + C_tang;  // 更新A为碰撞后的速度
+    // B = B_norm_after + B_tang;  // 更新B为碰撞后的速度，假设B仍然具有原始的切线方向速度
+    A = A_norm_after + A_tang;  // 更新A为碰撞后的速度
+    B = B_norm_after + B_tang;  // 更新A为碰撞后的速度
 }
 
 
