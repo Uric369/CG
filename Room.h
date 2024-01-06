@@ -46,6 +46,10 @@ public:
         glBindVertexArray(0);
     }
 
+    int getTexture(int index) {
+        return roomTextures[index];
+    }
+
 
 private:
     float roomWidth, roomHeight, roomDepth;
@@ -101,6 +105,13 @@ private:
              -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
              -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left        
         };
+
+        float textureRepeated = 2.0f;
+        for (int i = 0; i < 6 * 6; ++i) {
+            // 纹理坐标在每个顶点数组的第7和第8个位置
+            vertices[i * 8 + 6] *= textureRepeated; // u坐标
+            vertices[i * 8 + 7] *= textureRepeated; // v坐标
+        }
 
         glGenVertexArrays(1, &roomVAO);
         glGenBuffers(1, &roomVBO);

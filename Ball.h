@@ -10,6 +10,9 @@
 #include "stb_image.h"
 #include <iostream>
 
+const float heightTolerance = 0.1f;
+const float velocityTolerance = 0.1f;
+
 class Ball {
 public:
     glm::vec3 position;
@@ -79,6 +82,14 @@ public:
 
             // Update position with the new velocity
             position += velocity * deltaTime;
+
+            // 检查小球是否接近地板，并且速度是否足够低
+            float floorY = - 7.0f;
+            if (position.y - radius <= floorY + heightTolerance && glm::length(velocity) < velocityTolerance) {
+                active = false; // 可以选择停用物理模拟
+                position.y = floorY + radius; // 将小球放置在地板上
+                velocity = glm::vec3(0.0f); // 速度设置为零
+            }
         }
     }
 
@@ -221,6 +232,10 @@ public:
 
     void setTexture(unsigned int texture) {
         this->texture = texture;
+    }
+
+    bool isActive() const {
+        return this->active;
     }
 };
 

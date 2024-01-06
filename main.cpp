@@ -34,7 +34,7 @@ bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::v
 glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
 void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm);
 std::vector<Ball> generateRandomBalls(int numBalls);
-
+void collision_detection_wall(Ball& ball, Room &room);
 // settings
 const unsigned int SCR_WIDTH = 2000;
 const unsigned int SCR_HEIGHT = 1500;
@@ -42,7 +42,7 @@ bool shadows = true;
 bool shadowsKeyPressed = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 30.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 25.0f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -57,8 +57,10 @@ int roomDepth = 20.0f;
 const float m_ball = 1.0f;
 const float m_tumbler = 5.0f;
 const float e = 0.9;
+const float e_wall = 0.9;
+const float friction_wall = 0.1;
 const float friction = 0.1;
-const float speedLimit = 10.0f;
+const float speedLimit = 15.0f;
 const float ballRadius = 0.5f;
 const int ballCount = 30;
 const float examBorder = 2.0f;
@@ -115,11 +117,11 @@ int main()
     Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
     Shader ballShader("ball.vs", "3.2.2.point_shadows_fs.vs");
     std::vector<const char*> texturePaths = {
-    "./texture.jpg",
-    "./texture.jpg",
-    "./texture.jpg",
-    "./wall.png",
-    "./wall.png",
+    "./texture/glass.jpg",
+    "./texture/wall_blue_2.jpeg",
+    "./texture/wall_blue_2.jpeg",
+    "./texture/wall_blue_2.jpeg",
+    "./floor.jpg",
     "./wall.png",
     };
     Room room(roomWidth, roomHeight, roomDepth, texturePaths);
@@ -145,7 +147,7 @@ int main()
     }
     tumblers[0].getTexture();
 
-    Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
+    // Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
     std::vector<Ball> balls = generateRandomBalls(ballCount);
 
 
@@ -244,9 +246,9 @@ int main()
             it->updateWobbling(deltaTime);
             it->Draw(simpleDepthShader);
         }
-        std::cout << "当前时间：currentTime " << currentFrame;
-        ball.applyPhysics(deltaTime);
-        ball.draw(simpleDepthShader);
+        // std::cout << "当前时间：currentTime " << currentFrame;
+        // ball.applyPhysics(deltaTime);
+        // ball.draw(simpleDepthShader);
         for (int i = 0; i < ballCount; i++) {
             balls[i].applyPhysics(deltaTime);
             balls[i].draw(simpleDepthShader);
@@ -278,7 +280,7 @@ int main()
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
             it->Draw(shader);
         }
-        ball.draw(shader);
+        // ball.draw(shader);
         for (int i = 0; i < ballCount; i++) {
             balls[i].draw(shader);
         }
@@ -292,9 +294,12 @@ int main()
         light.draw();
 
         for (int i = 0; i < ballCount; i++) {
-            if (balls[i].getPosition().y >= examBorder) continue;
-            for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
-                collision_detection(balls[i], *it);
+            if (balls[i].isActive()) {
+                collision_detection_wall(balls[i], room);
+                if (balls[i].getPosition().y >= examBorder) continue;
+                for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+                    collision_detection(balls[i], *it);
+                }
             }
         }
 
@@ -465,7 +470,7 @@ void collision_detection(Ball& ball, Model& model) {
                     ball.setTexture(model.getTexture());
                     
                     glm::vec3 pos = ball.getPosition();
-                    std::cout << "当前小球位置： " << pos.x << " " << pos.y << " " << pos.z << std::endl;
+                    // std::cout << "当前小球位置： " << pos.x << " " << pos.y << " " << pos.z << std::endl;
                     
                     // std::cout << "法向量：" << mesh_normal.x << " " << mesh_normal.y << " " << mesh_normal.z << std::endl;
                     // std::cout << "当前速度： " << newspeed.x << " " << newspeed.y << " " << newspeed.z << std::endl;
@@ -485,7 +490,7 @@ bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& 
     }
     else {
         float distance = dot((center - v1), mesh_normal);
-        std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
+        // std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
         if (distance < radius / 2.0f) {
             glm::vec3 collision_point = center - distance * mesh_normal;
             std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
@@ -503,14 +508,14 @@ bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::v
         return false;
     }
     else {
-        std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
+        // std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
         float distance = dot((center - v1), mesh_normal);
-        std::cout << "distance: " << distance << std::endl;
+        // std::cout << "distance: " << distance << std::endl;
         if (distance < radius) {
             glm::vec3 collision_point = center - distance * mesh_normal;
             // ball.setActive(false);
-            std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
-            std::cout << "小球圆心：" << center.x << " " << center.y << " " << center.z << std::endl;
+            // std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
+            // std::cout << "小球圆心：" << center.x << " " << center.y << " " << center.z << std::endl;
             return true;
         }
     }
@@ -561,20 +566,85 @@ std::vector<Ball> generateRandomBalls(int numBalls) {
     for (int i = 0; i < numBalls; ++i) {
         // 随机生成位置和速度
         glm::vec3 position(
-            rand() / (float)RAND_MAX * roomWidth - roomWidth / 2.0f,
-            rand() / (float)RAND_MAX * roomHeight / 2.0f,
-            rand() / (float)RAND_MAX * roomDepth - roomDepth / 2.0f
+            rand() / (float)RAND_MAX * ( roomWidth - ballRadius * 2) - (roomWidth / 2.0f - ballRadius),
+            rand() / (float)RAND_MAX * ( roomHeight - ballRadius * 2) / 2.0f,
+            rand() / (float)RAND_MAX * ( roomDepth - ballRadius * 2) - (roomDepth / 2.0f - ballRadius)
         );
 
         glm::vec3 velocity(
             rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit,
-            rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit,
+            (rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit) / 2.0f,
             rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit
         );
 
-        balls.emplace_back(position, velocity, ballRadius, "./ball.png");
+        balls.emplace_back(position, velocity, ballRadius, "./texture/ball.jpg");
     }
 
     return balls;
 }
 
+
+
+void collision_detection_wall(Ball& ball, Room &room) {
+    float radius = ball.getRadius();
+    glm::vec3 ball_center = ball.getPosition();
+    glm::vec3 ball_velocity = ball.getVelocity();
+
+    float tolerance = 0.05f;
+
+    // 计算边界盒
+    glm::vec3 minBox = ball_center - glm::vec3(radius + tolerance);
+    glm::vec3 maxBox = ball_center + glm::vec3(radius + tolerance);
+
+    // 墙壁坐标
+    float leftWall = -roomWidth / 2.0f;
+    float rightWall = roomWidth / 2.0f;
+    float floor = -roomHeight / 2.0f;
+    float ceiling = roomHeight / 2.0f;
+    float backWall = - roomDepth / 2.0f;
+
+    // 检测碰撞并调整速度
+    if (minBox.x <= leftWall && ball_velocity.x < 0) { 
+        ball_velocity.x = -ball_velocity.x * e_wall; // 反弹
+        ball_velocity.y *= (1 - friction_wall); // 摩擦
+        ball_velocity.z *= (1 - friction_wall); // 摩擦
+        ball.setVelocity(ball_velocity);
+        ball.setTexture(room.getTexture(2));
+        return;
+    }
+    if (maxBox.x >= rightWall && ball_velocity.x > 0) {
+        ball_velocity.x = -ball_velocity.x * e_wall; // 反弹
+        ball_velocity.y *= (1 - friction_wall); // 摩擦
+        ball_velocity.z *= (1 - friction_wall); // 摩擦
+        ball.setVelocity(ball_velocity);
+        ball.setTexture(room.getTexture(3));
+        return;
+    }
+    if (minBox.y <= floor && ball_velocity.y < 0) { // 地板和天花板
+        ball_velocity.y = -ball_velocity.y * e_wall; // 反弹
+        ball_velocity.x *= (1 - friction_wall); // 摩擦
+        ball_velocity.z *= (1 - friction_wall); // 摩擦
+        ball.setVelocity(ball_velocity);
+        ball.setTexture(room.getTexture(4));
+        return;
+    }
+    if (maxBox.y >= ceiling && ball_velocity.y > 0) {
+        ball_velocity.y = -ball_velocity.y * e_wall; // 反弹
+        ball_velocity.x *= (1 - friction_wall); // 摩擦
+        ball_velocity.z *= (1 - friction_wall); // 摩擦
+        ball.setVelocity(ball_velocity);
+        ball.setTexture(room.getTexture(5));
+        return;
+    }
+    if (minBox.z <= backWall && ball_velocity.z < 0) { // 后墙
+        ball_velocity.z = -ball_velocity.z * e_wall; // 反弹
+        ball_velocity.x *= (1 - friction_wall); // 摩擦
+        ball_velocity.y *= (1 - friction_wall); // 摩擦
+        ball.setVelocity(ball_velocity);
+        ball.setTexture(room.getTexture(0));
+        return;
+    }
+
+    // 更新球体速度
+    ball.setVelocity(ball_velocity);
+}

@@ -50,7 +50,7 @@ public:
         : gammaCorrection(gamma), scale(scale), offset(offset)
     {
         loadModel(path);
-        direction = glm::vec3(0.6f, 0.0f, 0.8f);
+        direction = glm::vec3(0.0f, 0.0f, 1.0f);
     }
 
     // Update the wobbling effect of the object around the Z-axis
@@ -159,10 +159,10 @@ public:
 
 private:
     // Wobbling properties
-    float theta = 0.07f; // Current angle of wobble (in radians)
-    float omega = 2.0f; // Current angular velocity (in radians per second)
+    float theta = 0.0f; // Current angle of wobble (in radians)
+    float omega = 0.0f; // Current angular velocity (in radians per second)
     float b = 0.05f;     // Damping coefficient
-    float k = 4.0f;     // Spring constant for restoring torque
+    float k = 2.0f;     // Spring constant for restoring torque
     float I = 0.5f;     // Moment of inertia
     // float deltaTime = 0.016f; // Time step for the simulation (1/60 seconds for 60FPS)
     bool isWobbling = true;
