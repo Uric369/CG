@@ -3,6 +3,9 @@
 #include <GLFW/glfw3.h>
 #include "stb_image.h"
 #include <vector>
+#include <cstdlib> // 对于rand()和srand()
+#include <ctime> // 对于time()
+
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -29,10 +32,12 @@ void collision_detection(Ball& ball, Model& model);
 bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal);
 bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball);
 glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
+glm::vec3 reflectVec3_modified(glm::vec3 A, glm::vec3 B, glm::vec3 norm);
+std::vector<Ball> generateRandomBalls(int numBalls);
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 2000;
+const unsigned int SCR_HEIGHT = 1500;
 bool shadows = true;
 bool shadowsKeyPressed = false;
 
@@ -49,8 +54,14 @@ float lastFrame = 0.0f;
 int roomWidth = 20.0f;
 int roomHeight = 14.0f;
 int roomDepth = 20.0f;
-
-
+const float m_ball = 1.0f;
+const float m_tumbler = 5.0f;
+const float e = 0.9;
+const float friction = 0.1;
+const float speedLimit = 10.0f;
+const float ballRadius = 0.5f;
+const int ballCount = 30;
+const float examBorder = 2.0f;
 
 int main()
 {
@@ -121,18 +132,23 @@ int main()
     std::vector<Model> tumblers;
     // List of offsets for each tumbler
     std::vector<glm::vec3> offsets = {
-        glm::vec3(-4.0f,  9.0f, 0.0f),
-        glm::vec3(4.0f, -5.0f, 0.0f),
-        glm::vec3(-4.0f, -5.0f, 4.0f),
-        glm::vec3(4.0f, -5.0f, 4.0f)
+        glm::vec3(-5.0f,  -5.0f, -5.0f),
+        glm::vec3(5.0f, -5.0f, -5.0f),
+        glm::vec3(-5.0f, -5.0f, 5.0f),
+        glm::vec3(5.0f, -5.0f, 5.0f),
+        glm::vec3(0.0f, -5.0f, 0.0f)
     };
     glm::vec3 commonScale(40.0f);
     // glm::vec3 commonScale(1.0f);
     for (const auto& offset : offsets) {
         tumblers.emplace_back("./model/tumbler.obj", false, commonScale, offset);
     }
+    tumblers[0].getTexture();
 
-    Ball ball(glm::vec3(-4.0f, 9.0f, 4.0f), glm::vec3(0.0f, -0.3f, 0.0f), 1.0f, "./ball.png");
+    Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
+    std::vector<Ball> balls = generateRandomBalls(ballCount);
+
+
     ParticleGenerator particleGenerator(particleShader, "./fire.jpg", 500);
     // Initialize EmitterState with start position, velocity, and dampening
     EmitterState emitterState(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
@@ -225,12 +241,16 @@ int main()
         renderScene(simpleDepthShader);
         room.Draw(simpleDepthShader);
         for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
-            it->updateWobbling(deltaTime);
+            it->updateWobbling(0.0f);
             it->Draw(simpleDepthShader);
         }
         std::cout << "当前时间：currentTime " << currentFrame;
         ball.applyPhysics(deltaTime);
         ball.draw(simpleDepthShader);
+        for (int i = 0; i < ballCount; i++) {
+            balls[i].applyPhysics(deltaTime);
+            balls[i].draw(simpleDepthShader);
+        }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -259,6 +279,9 @@ int main()
             it->Draw(shader);
         }
         ball.draw(shader);
+        for (int i = 0; i < ballCount; i++) {
+            balls[i].draw(shader);
+        }
 
         lightShader.use();
         lightShader.setVec3("aPos", lightPos);
@@ -268,9 +291,11 @@ int main()
         // add time component to geometry shader in the form of a uniform
         light.draw();
 
-
-        for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
-            collision_detection(ball, *it);
+        for (int i = 0; i < ballCount; i++) {
+            if (balls[i].getPosition().y >= examBorder) continue;
+            for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+                collision_detection(balls[i], *it);
+            }
         }
 
 
@@ -432,8 +457,10 @@ void collision_detection(Ball& ball, Model& model) {
                     // ball.setActive(false);
                     glm::vec3 oldspeed = ball.getVelocity();
                     std::cout << "原速度：" << oldspeed.x << " " << oldspeed.y << " " << oldspeed.z << std::endl;
-                    glm::vec3 newspeed = reflectVec3(-ball.getVelocity(), mesh_normal);
+                    glm::vec3 newspeed = reflectVec3_modified(ball.getVelocity(), model.getPointVelocity((v1 + v2 + v3) / 3.0f), mesh_normal);
                     ball.setVelocity(newspeed);
+                    ball.setTexture(model.getTexture());
+                    
                     glm::vec3 pos = ball.getPosition();
                     std::cout << "当前小球位置： " << pos.x << " " << pos.y << " " << pos.z << std::endl;
                     
@@ -469,7 +496,7 @@ bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& 
 bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball) {
     // std::cout << "v1: " << v1.x << " " << v1.y << " " << v1.z << std::endl;
     // 你需要实现这个函数，检测球体和三角面片是否相交
-    if (glm::distance(center, v1) > 2 * radius && glm::distance(center, v2) > 2 * radius && glm::distance(center, v3) > 2 * radius) {
+    if (glm::distance(center, v1) > 3 * radius && glm::distance(center, v2) > 3 * radius && glm::distance(center, v3) > 3 * radius) {
         return false;
     }
     else {
@@ -494,3 +521,55 @@ glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B) {
     glm::vec3 C = (float)2.0 * proj_AB - A;
     return C;
 }
+
+
+glm::vec3 reflectVec3_modified(glm::vec3 A, glm::vec3 B, glm::vec3 norm) {
+    // 确保norm是单位向量
+    glm::vec3 norm_normalized = normalize(norm);
+
+    // 分解A和B为法线方向和切线方向的分量
+    float dotAnorm = dot(A, norm_normalized);
+    glm::vec3 A_norm = dotAnorm * norm_normalized;
+    glm::vec3 A_tang = A - A_norm;
+
+    float dotBnorm = dot(B, norm_normalized);
+    glm::vec3 B_norm = dotBnorm * norm_normalized;
+    glm::vec3 B_tang = B - B_norm;
+
+    // 非完全弹性碰撞
+    glm::vec3 C_norm = ((m_ball * A_norm + m_tumbler * B_norm + m_tumbler * e * (B_norm - A_norm)) / (m_ball + m_tumbler));
+
+    // 摩擦处理
+    glm::vec3 C_tang = A_tang + B_tang - friction * normalize(A_tang + B_tang);
+
+    // 结合法线方向和切线方向的速度
+    glm::vec3 C = C_norm + C_tang;
+
+    return C;
+}
+
+
+std::vector<Ball> generateRandomBalls(int numBalls) {
+    std::vector<Ball> balls;
+    srand(static_cast<unsigned int>(time(nullptr))); // 初始化随机数生成器
+
+    for (int i = 0; i < numBalls; ++i) {
+        // 随机生成位置和速度
+        glm::vec3 position(
+            rand() / (float)RAND_MAX * roomWidth - roomWidth / 2.0f,
+            rand() / (float)RAND_MAX * roomHeight / 2.0f,
+            rand() / (float)RAND_MAX * roomDepth - roomDepth / 2.0f
+        );
+
+        glm::vec3 velocity(
+            rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit,
+            rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit,
+            rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit
+        );
+
+        balls.emplace_back(position, velocity, ballRadius, "./ball.png");
+    }
+
+    return balls;
+}
+

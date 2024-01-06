@@ -62,8 +62,8 @@ public:
 
     // Update Ball's position and velocity according to gravity, air resistance and delta time
     void applyPhysics(float deltaTime) {
-        std::cout << "小球还能不能动啦： " << active << std::endl;
-        std::cout << "小球velocity：" << velocity.x << std::endl;
+        // std::cout << "小球还能不能动啦： " << active << std::endl;
+        // std::cout << "小球velocity：" << velocity.x << std::endl;
         if (active) {
             // std::cout << "ball position" << position.x << " " << position.y << " " << position.z << std::endl;
             // Update velocity with gravity effect
@@ -85,8 +85,8 @@ public:
 
     void draw(Shader &shader) {
         glm::vec3 ds = getDisplacement();
-        std::cout << "displacement" << ds.x << " " << ds.y << " " << ds.z;
-        shader.setVec3("displacement", getDisplacement());
+        // std::cout << "displacement" << ds.x << " " << ds.y << " " << ds.z;
+        // shader.setVec3("displacement", glm::vec3(0.0f, -14.0f, 0.0f));
         shader.setMat4("model", glm::mat4(1.0f));
         shader.setInt("reverse_normals", 0);
 
@@ -108,9 +108,9 @@ public:
                 float y = cosTheta;
                 float z = sinPhi * sinTheta;
 
-                vertices.push_back(ini_position.x + radius * x);
-                vertices.push_back(ini_position.y + radius * y);
-                vertices.push_back(ini_position.z + radius * z);
+                vertices.push_back(position.x + radius * x);
+                vertices.push_back(position.y + radius * y);
+                vertices.push_back(position.z + radius * z);
                 vertices.push_back(x);
                 vertices.push_back(y);
                 vertices.push_back(z);
@@ -217,6 +217,10 @@ public:
 
     void setActive(bool act) {
         active = act;
+    }
+
+    void setTexture(unsigned int texture) {
+        this->texture = texture;
     }
 };
 

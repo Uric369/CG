@@ -40,6 +40,8 @@ public:
     glm::vec3 bboxMax = glm::vec3(FLT_MIN);
     glm::vec3 transformedMin;
     glm::vec3 transformedMax;
+    const float massCenter = 0.02f;
+    unsigned int textureID;
 
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false, glm::vec3 scale = glm::vec3(1.0f), glm::vec3 offset = glm::vec3(0.0f))
@@ -83,6 +85,8 @@ public:
         // set the model matrix in the shader
         shader.setMat4("model", model);
         shader.setInt("reverse_normals", 0);
+        // glm::vec4 pos = model * glm::vec4(0.037514f, 0.021025f, 0.024657f, 0.0f);
+        // std::cout << "Draw point" << pos.x << " " << pos.y << " " << pos.z << std::endl;
         for (unsigned int i = 0; i < meshes.size(); i++) {
             // Draw the mesh with the applied model matrix
             meshes[i].Draw(shader);
@@ -93,6 +97,11 @@ public:
         // 计算球体的包围盒
         glm::vec3 sphereBBoxMin = sphereCenter - glm::vec3(sphereRadius);
         glm::vec3 sphereBBoxMax = sphereCenter + glm::vec3(sphereRadius);
+
+        // std::cout << "小球包围盒(min)：" << sphereBBoxMin.x << " " << sphereBBoxMin.y << " " << sphereBBoxMin.z << std::endl;
+        // std::cout << "小球包围盒(max)：" << sphereBBoxMax.x << " " << sphereBBoxMax.y << " " << sphereBBoxMax.z << std::endl;
+        // std::cout << "不倒翁围盒(min)：" << transformedMin.x << " " << transformedMin.y << " " << transformedMin.z << std::endl;
+        // std::cout << "不倒翁围盒(max)：" << transformedMax.x << " " << transformedMax.y << " " << transformedMax.z << std::endl;
 
         // 检查球体的包围盒是否与变换后的包围盒相交
         return (sphereBBoxMin.x <= transformedMax.x && sphereBBoxMax.x >= transformedMin.x) &&
@@ -105,16 +114,35 @@ public:
         model = glm::translate(model, offset);  // apply translation (offset)
         model = glm::scale(model, scale);       // apply scaling
         // Combine the transformation
-        model = model * rotation; // No need for an additional translation in this case
+        model = model * glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // No need for an additional translation in this case
 
 
         glm::vec4 transformedPoint = model * glm::vec4(point, 1.0f); // 变换点
+        // glm::vec4 pos = model * glm::vec4(0.037514f, 0.021025f, 0.024657f, 0.0f);
+        // std::cout << "Trans point" << pos.x << " " << pos.y << " " << pos.z << std::endl;
         return glm::vec3(transformedPoint); // 转换回vec3
+    }
+
+    glm::vec3 getPointVelocity(const glm::vec3& point) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        // Combine the transformation
+        model = model * glm::rotate(glm::mat4(1.0f), theta, glm::vec3(0.0f, 0.0f, 1.0f)); // No need for an additional translation in this case
+
+        glm::vec3 transformedMassCenter = glm::vec3(model * glm::vec4(0.0f, massCenter, 0.0f, 1.0f)); // 变换点
+
+        glm::vec3 radius_velocity = glm::vec3(0.0f, 0.0f, omega);
+        return cross(radius_velocity, point - transformedMassCenter);
+    }
+
+    unsigned int getTexture() const {
+        return textures_loaded[0].id;
     }
 
 private:
     // Wobbling properties
-    float theta = 0.2f; // Current angle of wobble (in radians)
+    float theta = 1.0f; // Current angle of wobble (in radians)
     float omega = 2.0f; // Current angular velocity (in radians per second)
     float b = 0.05f;     // Damping coefficient
     float k = 2.0f;     // Spring constant for restoring torque
@@ -289,18 +317,34 @@ private:
     }
     
     void updateBoundingBox(const glm::vec3& point) {
-        bboxMin = glm::min(bboxMin, point);
-        bboxMax = glm::max(bboxMax, point);
+        // For each component (x, y, z), find the minimum and maximum
+        bboxMin.x = std::min(bboxMin.x, point.x);
+        bboxMin.y = std::min(bboxMin.y, point.y);
+        bboxMin.z = std::min(bboxMin.z, point.z);
+
+        bboxMax.x = std::max(bboxMax.x, point.x);
+        bboxMax.y = std::max(bboxMax.y, point.y);
+        bboxMax.z = std::max(bboxMax.z, point.z);
     }
 
     void updateTransformedBoundingBox() {
         transformedMin = transformPoint(bboxMin);
         transformedMax = transformPoint(bboxMax);
 
-        glm::vec3 tmp = transformedMin;
-        transformedMin = glm::min(transformedMin, transformedMax);
-        transformedMax = glm::max(transformedMax, tmp);
+        glm::vec3 actualMin, actualMax;
 
+        // For each component (x, y, z), find the minimum and maximum
+        actualMin.x = std::min(transformedMin.x, transformedMax.x);
+        actualMin.y = std::min(transformedMin.y, transformedMax.y);
+        actualMin.z = std::min(transformedMin.z, transformedMax.z);
+
+        actualMax.x = std::max(transformedMin.x, transformedMax.x);
+        actualMax.y = std::max(transformedMin.y, transformedMax.y);
+        actualMax.z = std::max(transformedMin.z, transformedMax.z);
+
+        // Set the transformed bounding box to actual minimum and maximum
+        transformedMin = actualMin;
+        transformedMax = actualMax;
     }
 
 
