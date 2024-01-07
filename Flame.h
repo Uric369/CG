@@ -1,14 +1,14 @@
 #pragma once
+#include "stb_image.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "stb_image.h"
 
-#include <iostream>
-#include <ctime>
-#include <math.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <iostream>
+#include <ctime>
+#include <math.h>
 
 #include "Shader.h"
 
@@ -22,18 +22,18 @@ namespace Flame {
 	//最大最小速度差距
 //#define DEL_VELOC glm::vec3(0.0,2.0,0.0)
 	//最长生命周期
-#define MAX_LIFE 2.0f*50
+#define MAX_LIFE 2.0f*100
 	//最短生命周期
-#define MIN_LIFE 1.0f*50  
+#define MIN_LIFE 1.0f*100  
 	//初始点精灵大小
-#define INIT_SIZE 10.0f;
+#define INIT_SIZE 30.0f;
 
-	const int MAX_PARTICLES = 800;//定义粒子发射系统最大的粒子数
+	const int MAX_PARTICLES = 1800;//定义粒子发射系统最大的粒子数
 	//初始发射器例子数量
-	const int INIT_PARTICLES = 200;
+	const int INIT_PARTICLES = 1000;
 	//火焰中心
 	const glm::vec3 center(0.0f);
-	const float r = 4.0f;
+	const float r = 0.3f;
 
 
 
@@ -53,10 +53,11 @@ namespace Flame {
 	public:
 		Flame();
 		~Flame();
-		void Render(float frametimeMills, glm::mat4 viewMatrix, glm::mat4 projectMatrix);
+		void Render(float frametimeMills, glm::mat4 viewMatrix, glm::mat4& projectMatrix);
 		void update(float frametimeMills);
 
 		float radius;
+		float gravity;
 
 		glm::vec3 position;
 		glm::vec3 velocity;
@@ -73,42 +74,7 @@ namespace Flame {
 		void RenderParticles(glm::mat4& worldMatrix, glm::mat4& viewMatrix, glm::mat4& projectMatrix);
 		void GenInitLocation(FlameParticle partciles[], int nums);//生成初始粒子
 		void updateMaxMinVelocity();
-		unsigned int loadTexture(const char* path)
-		{
-			unsigned int textureID;
-			glGenTextures(1, &textureID);
-
-			int width, height, nrComponents;
-			unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
-			if (data)
-			{
-				GLenum format;
-				if (nrComponents == 1)
-					format = GL_RED;
-				else if (nrComponents == 3)
-					format = GL_RGB;
-				else if (nrComponents == 4)
-					format = GL_RGBA;
-
-				glBindTexture(GL_TEXTURE_2D, textureID);
-				glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-				glGenerateMipmap(GL_TEXTURE_2D);
-
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-				stbi_image_free(data);
-			}
-			else
-			{
-				std::cout << "Texture failed to load at path: " << path << std::endl;
-				stbi_image_free(data);
-			}
-
-			return textureID;
-		}
+		unsigned int loadTexture(const char* path);
 
 		unsigned int mCurVBOIndex, mCurTransformFeedbackIndex;
 		GLuint mParticleBuffers[2]; //粒子发射系统的两个顶点缓存区

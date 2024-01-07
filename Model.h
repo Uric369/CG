@@ -198,7 +198,11 @@ public:
             // arm = arm - dot(arm, direction) * direction;
             // displacement = displacement - dot(displacement, direction) * direction;
             // displacement = displacement - dot(displacement, arm) * arm / glm::length(arm);
-            float theta_del = glm::length(displacement) / (glm::length(arm)+5.0f);
+            std::cout << glm::length(displacement) << " " << glm::length(arm) << " ";
+            float theta_del;
+            if (glm::length(arm) > 0)
+                theta_del = glm::length(displacement) / (glm::length(arm) + 2.0f);
+            else  theta_del = glm::length(displacement) / 5.0f;
             std::cout << theta_del;
             theta += theta_del;
         }

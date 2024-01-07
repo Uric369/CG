@@ -18,7 +18,6 @@
 #include "ParticleGenerator.h"
 #include "Light.h"
 #include "Ball.h"
-#include "Flame.h"
 
 #include <iostream>
 
@@ -34,11 +33,12 @@ bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& 
 bool testSphereTriangle_test(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& mesh_normal, Ball &ball);
 glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
 void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm);
-std::vector<Ball> generateRandomBalls(int numBalls);
+void generateRandomBalls(int numBalls);
 void collision_detection_wall(Ball& ball, Room &room);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 void dragModel();
+
 // settings
 const unsigned int SCR_WIDTH = 2000;
 const unsigned int SCR_HEIGHT = 1500;
@@ -49,9 +49,10 @@ glm::mat4 view;
 glm::vec3 newMousePoint;
 glm::vec3 lastMousePoint;
 bool isDragging = false;
+bool isBallsGenerated = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 30.0f));
+Camera camera(glm::vec3(-5.0f, 0.0f, 25.0f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -62,6 +63,7 @@ float lastFrame = 0.0f;
 
 int moving_tumbler = 0;
 std::vector<Model> tumblers;
+std::vector<Ball> balls;
 const float m_ball = 1.0f;
 const float m_tumbler = 5.0f;
 const float e = 0.9;
@@ -72,6 +74,7 @@ const float speedLimit = 15.0f;
 const float ballRadius = 0.5f;
 const int ballCount = 30;
 const float examBorder = 2.0f;
+const int particleCount = 200;
 
 int main()
 {
@@ -120,12 +123,12 @@ int main()
 
     // build and compile shaders
     // -------------------------
-    Shader shader("3.2.2.point_shadows.vs", "3.2.2.point_shadows_fs.vs");
-    Shader simpleDepthShader("3.2.2.point_shadows_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
+    Shader shader("3.2.2.point_shadows.vs", "3.2.2.point_shadows.fs");
+    Shader simpleDepthShader("3.2.2.point_shadows_depth.vs", "3.2.2.point_shadows_depth.fs", "3.2.2.point_shadows_depth.gs");
     Shader particleShader("particle.vs", "particle_fs.vs");
-    Shader lightShader("light.vs", "light_fs.vs");
-    // Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
-    // Shader ballShader("ball.vs", "3.2.2.point_shadows_fs.vs");
+    Shader lightShader("light.vs", "light.fs");
+    // Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth.fs", "3.2.2.point_shadows_depth.gs");
+    // Shader ballShader("ball.vs", "3.2.2.point_shadows.fs");
     std::vector<const char*> texturePaths = {
     "./texture/glass.jpg",
     "./texture/wall_blue_2.jpeg",
@@ -134,7 +137,7 @@ int main()
     "./floor.jpg",
     "./wall.png",
     };
-    Flame::Flame flame;
+    // Flame::Flame flame;
     Room room(roomWidth, roomHeight, roomDepth, texturePaths);
     // lighting info
 // -------------
@@ -158,12 +161,11 @@ int main()
     tumblers[0].getTexture();
 
     // Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
-    std::vector<Ball> balls = generateRandomBalls(ballCount);
 
 
-    ParticleGenerator particleGenerator(particleShader, "./fire.jpg", 500);
+    ParticleGenerator particleGenerator("./texture/fire.jpg", particleCount);
     // Initialize EmitterState with start position, velocity, and dampening
-    EmitterState emitterState(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
+    EmitterState emitterState(glm::vec3(-4.0f, 4.0f, 4.0f), glm::vec3(2.0f, 0.0f, 0.0f), 1.0f);
 
 
     // load textures
@@ -224,8 +226,6 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        particleGenerator.Update(deltaTime, emitterState, 2, glm::vec3(0.0f));
-        particleGenerator.Draw();
 
         // 0. create depth cubemap transformation matrices
         // -----------------------------------------------
@@ -260,9 +260,11 @@ int main()
         // std::cout << "当前时间：currentTime " << currentFrame;
         // ball.applyPhysics(deltaTime);
         // ball.draw(simpleDepthShader);
-        for (int i = 0; i < ballCount; i++) {
-            balls[i].applyPhysics(deltaTime);
-            balls[i].draw(simpleDepthShader);
+        if (isBallsGenerated) {
+            for (int i = 0; i < ballCount; i++) {
+                balls[i].applyPhysics(deltaTime);
+                balls[i].draw(simpleDepthShader);
+            }
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -292,9 +294,18 @@ int main()
             it->Draw(shader);
         }
         // ball.draw(shader);
-        for (int i = 0; i < ballCount; i++) {
-            balls[i].draw(shader);
+        if (isBallsGenerated) {
+            for (int i = 0; i < ballCount; i++) {
+                balls[i].draw(shader);
+            }
         }
+
+        particleGenerator.Update(deltaTime, emitterState, particleCount, glm::vec3(0.0f));
+        particleShader.use();
+        particleShader.setMat4("projection", projection);
+        particleShader.setMat4("model", glm::mat4(1.0f)); // Replace with your actual model matrix
+        particleShader.setMat4("view", view);
+        particleGenerator.Draw(particleShader);
 
         lightShader.use();
         lightShader.setVec3("aPos", lightPos);
@@ -304,12 +315,14 @@ int main()
         // add time component to geometry shader in the form of a uniform
         light.draw();
 
-        for (int i = 0; i < ballCount; i++) {
-            if (balls[i].isActive()) {
-                collision_detection_wall(balls[i], room);
-                if (balls[i].getPosition().y >= examBorder) continue;
-                for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
-                    collision_detection(balls[i], *it);
+        if (isBallsGenerated) {
+            for (int i = 0; i < ballCount; i++) {
+                if (balls[i].isActive()) {
+                    collision_detection_wall(balls[i], room);
+                    if (balls[i].getPosition().y >= examBorder) continue;
+                    for (auto it = tumblers.begin(); it != tumblers.end(); ++it) {
+                        collision_detection(balls[i], *it);
+                    }
                 }
             }
         }
@@ -345,7 +358,10 @@ void processInput(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && !isBallsGenerated) {
+        generateRandomBalls(ballCount);
+        isBallsGenerated = true;
+    }
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -563,8 +579,7 @@ void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm) {
 }
 
 
-std::vector<Ball> generateRandomBalls(int numBalls) {
-    std::vector<Ball> balls;
+void generateRandomBalls(int numBalls) {
     srand(static_cast<unsigned int>(time(nullptr))); // 初始化随机数生成器
 
     for (int i = 0; i < numBalls; ++i) {
@@ -581,10 +596,10 @@ std::vector<Ball> generateRandomBalls(int numBalls) {
             rand() / (float)RAND_MAX * 2 * speedLimit - speedLimit
         );
 
-        balls.emplace_back(position, velocity, ballRadius, "./texture/ball.jpg");
+        balls.emplace_back(position, velocity, ballRadius, "./texture/ball_white.jpg");
     }
 
-    return balls;
+    return;
 }
 
 

@@ -1,4 +1,4 @@
-#version 330 
+#version 330 core
 
 in float Size;
 in vec3 pos;
