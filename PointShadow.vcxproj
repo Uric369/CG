@@ -132,6 +132,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Flame.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ParticleGenerator.cpp" />
@@ -139,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="Ball.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Flame.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
@@ -153,8 +155,11 @@
     <None Include="3.2.2.point_shadows_depth.vs" />
     <None Include="3.2.2.point_shadows_depth_fs.vs" />
     <None Include="3.2.2.point_shadows_fs.vs" />
-    <None Include="ball.vs" />
-    <None Include="ball_depth.vs" />
+    <None Include="flame_render_fs.vs" />
+    <None Include="flame_render.vs" />
+    <None Include="flame_update_fs.vs" />
+    <None Include="flame_update_gs.vs" />
+    <None Include="flame_update.vs" />
     <None Include="light.vs" />
     <None Include="light_fs.vs" />
     <None Include="particle.vs" />

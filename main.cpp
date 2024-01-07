@@ -18,6 +18,7 @@
 #include "ParticleGenerator.h"
 #include "Light.h"
 #include "Ball.h"
+#include "Flame.h"
 
 #include <iostream>
 
@@ -35,14 +36,22 @@ glm::vec3 reflectVec3(glm::vec3 A, glm::vec3 B);
 void reflectVec3_modified(glm::vec3& A, glm::vec3& B, const glm::vec3& norm);
 std::vector<Ball> generateRandomBalls(int numBalls);
 void collision_detection_wall(Ball& ball, Room &room);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
+void dragModel();
 // settings
 const unsigned int SCR_WIDTH = 2000;
 const unsigned int SCR_HEIGHT = 1500;
 bool shadows = true;
 bool shadowsKeyPressed = false;
+glm::mat4 projection;
+glm::mat4 view;
+glm::vec3 newMousePoint;
+glm::vec3 lastMousePoint;
+bool isDragging = false;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 25.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 30.0f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -51,9 +60,8 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-int roomWidth = 20.0f;
-int roomHeight = 14.0f;
-int roomDepth = 20.0f;
+int moving_tumbler = 0;
+std::vector<Model> tumblers;
 const float m_ball = 1.0f;
 const float m_tumbler = 5.0f;
 const float e = 0.9;
@@ -70,8 +78,8 @@ int main()
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
@@ -89,11 +97,13 @@ int main()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+    // glfwSetCursorPosCallback(window, mouse_callback);
+    // glfwSetScrollCallback(window, scroll_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -114,8 +124,8 @@ int main()
     Shader simpleDepthShader("3.2.2.point_shadows_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
     Shader particleShader("particle.vs", "particle_fs.vs");
     Shader lightShader("light.vs", "light_fs.vs");
-    Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
-    Shader ballShader("ball.vs", "3.2.2.point_shadows_fs.vs");
+    // Shader ballDepthShader("ball_depth.vs", "3.2.2.point_shadows_depth_fs.vs", "3.2.2.point_shadows_depth.gs");
+    // Shader ballShader("ball.vs", "3.2.2.point_shadows_fs.vs");
     std::vector<const char*> texturePaths = {
     "./texture/glass.jpg",
     "./texture/wall_blue_2.jpeg",
@@ -124,6 +134,7 @@ int main()
     "./floor.jpg",
     "./wall.png",
     };
+    Flame::Flame flame;
     Room room(roomWidth, roomHeight, roomDepth, texturePaths);
     // lighting info
 // -------------
@@ -131,7 +142,6 @@ int main()
 
     Light light(lightPos, 2.0f);
 
-    std::vector<Model> tumblers;
     // List of offsets for each tumbler
     std::vector<glm::vec3> offsets = {
         glm::vec3(-5.0f,  -5.0f, -5.0f),
@@ -182,6 +192,7 @@ int main()
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 
 
     // shader configuration
@@ -261,8 +272,8 @@ int main()
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        view = camera.GetViewMatrix();
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
         // set lighting uniforms
@@ -303,6 +314,7 @@ int main()
             }
         }
 
+        // flame.Render(deltaTime, view, projection);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -482,21 +494,13 @@ void collision_detection(Ball& ball, Model& model) {
 }
 
 // 检查球体和三角面片是否相交的函数
-bool testSphereTriangle(const glm::vec3& center, float radius, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3 &mesh_normal) {
+bool testSphereTriangle(const glm::vec3& center, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3 &mesh_normal) {
     // std::cout << "v1: " << v1.x << " " << v1.y << " " << v1.z << std::endl;
     // 你需要实现这个函数，检测球体和三角面片是否相交
-    if (glm::distance(center, v1) > 2 * radius && glm::distance(center, v2) > 2 * radius && glm::distance(center, v3) > 2 * radius) {
-        return false;
-    }
-    else {
-        float distance = dot((center - v1), mesh_normal);
-        // std::cout << "mesh_normal_length: " << glm::length(mesh_normal) << std::endl;
-        if (distance < radius / 2.0f) {
-            glm::vec3 collision_point = center - distance * mesh_normal;
-            std::cout << "碰撞点：" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
-            return true;
-        }
-    }
+     float distance = dot((center - v1), mesh_normal);
+     if (distance <= 0.1f) {
+         return true;
+     }
     return false;
 }
 
@@ -647,4 +651,107 @@ void collision_detection_wall(Ball& ball, Room &room) {
 
     // 更新球体速度
     ball.setVelocity(ball_velocity);
+}
+
+glm::vec3 getViewPos(int x, int y, glm::mat4 pro, glm::mat4 view)
+{
+    // 将屏幕坐标转换为NDC（标准化设备坐标）
+    float win_x = (float)x;
+    float win_y = (float)SCR_HEIGHT - (float)y - 1.0f;
+    float win_z;
+
+    // 从深度缓冲区中读取深度值
+    glReadBuffer(GL_BACK);
+    glReadPixels(x, int(win_y), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &win_z);
+
+    // 反投影屏幕坐标到世界坐标
+    glm::vec3 winCoords(win_x, win_y, win_z);
+    glm::vec4 viewport = glm::vec4(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
+    glm::vec3 obj = glm::unProject(winCoords, view, pro, viewport);
+
+    return obj;
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    //std::cout << "butt" << std::endl;
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        //std::cout << "button" <<  xpos << "  " << ypos << std::endl;
+
+        // 转换屏幕坐标为3D世界坐标
+        glm::vec3 worldPos = getViewPos(xpos, ypos, projection, view);
+        newMousePoint = worldPos;
+        cout << "鼠标按下时世界坐标" << worldPos.x << " " << worldPos.y << " " << worldPos.z << std::endl;
+        //tumbler包围盒与鼠标的碰撞检测
+        dragModel();
+        lastMousePoint = newMousePoint;
+    }
+    else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+    {
+        isDragging = false;
+        cout << "松开鼠标" << std::endl;
+    }
+
+}
+
+
+void dragModel() {
+    // 获取子弹（球体）的半径和中心位置
+    for (int k = 0; k < tumblers.size(); k++) {
+        // std::cout << "第 " << k << " 个不倒翁" << std::endl;
+    if (tumblers[k].isSphereBoundingBoxIntersectingAABB(newMousePoint, 0)) {
+
+        // 遍历模型中的每个网格(mesh)
+        for (Mesh& mesh : tumblers[k].meshes) {
+            // 遍历每个网格的三角面片
+            for (unsigned int i = 0; i < mesh.indices.size() - 3; i += 3) {
+                // 获取三角面片的顶点
+                // glm::vec3 v1 = glm::vec3(0.0f, 0.0f, 0.0f);
+                
+                // glm::vec3 v2 = glm::vec3(0.0f, 0.0f, 0.0f);
+
+                // glm::vec3 v3 = glm::vec3(0.0f, 0.0f, 0.0f);
+
+                glm::vec3 v1 = mesh.vertices[mesh.indices[i]].Position;
+                tumblers[k].transformPoint_2(v1);
+                glm::vec3 v2 = mesh.vertices[mesh.indices[i + 1]].Position;
+                tumblers[k].transformPoint_2(v2);
+                glm::vec3 v3 = mesh.vertices[mesh.indices[i + 2]].Position;
+                tumblers[k].transformPoint_2(v3);
+                
+                glm::vec3 mesh_normal = normalize(cross((v1 - v3), (v2 - v3)));
+
+                if (testSphereTriangle(newMousePoint, v1, v2, v3, mesh_normal)) {
+                    std::cout << "v1: " << v1.x << " " << v1.y << " " << v1.z << std::endl;
+                    if (!isDragging){
+                        isDragging = true;
+                        moving_tumbler = k;
+                        std::cout << "开始拖动第 " << k << " 个不倒翁";
+                        return;
+                    }
+                    return; // 发生碰撞，退出检测
+                }
+            }
+        }
+    }
+}
+}
+
+
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    // std::cout << "移动";
+    if (isDragging)
+    {
+        newMousePoint = getViewPos(xpos, ypos, projection, view);
+        // glm::vec3 displacement = newMousePoint - lastMousePoint;
+        // std::cout << "移动" << displacement.x << " " << displacement.y << " " << displacement.z << std::endl;
+        tumblers[moving_tumbler].move(newMousePoint, lastMousePoint);
+        lastMousePoint = newMousePoint;
+        return;
+    }
 }

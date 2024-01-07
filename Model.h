@@ -22,6 +22,9 @@
 #include <vector>
 using namespace std;
 
+extern const int roomWidth = 20.0f;
+extern const int roomHeight = 14.0f;
+extern const int roomDepth = 20.0f;
 
 unsigned int TextureFromFile(const char* path, const string& directory, bool gamma = false);
 
@@ -41,7 +44,7 @@ public:
     glm::vec3 transformedMin;
     glm::vec3 transformedMax;
     glm::vec3 direction;
-    const float massCenter = 0.02f;
+    const float massCenter = 0.05f;
     unsigned int textureID;
     
 
@@ -116,14 +119,21 @@ public:
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, offset);  // apply translation (offset)
         model = glm::scale(model, scale);       // apply scaling
-        // Combine the transformation
         model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
 
 
         glm::vec4 transformedPoint = model * glm::vec4(point, 1.0f); // 变换点
-        // glm::vec4 pos = model * glm::vec4(0.037514f, 0.021025f, 0.024657f, 0.0f);
-        // std::cout << "Trans point" << pos.x << " " << pos.y << " " << pos.z << std::endl;
         return glm::vec3(transformedPoint); // 转换回vec3
+        // return point;
+    }
+
+    void transformPoint_2(glm::vec3& point) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
+
+        point = glm::vec3(model * glm::vec4(point, 1.0f)); // 变换点
     }
 
     glm::vec3 getPointVelocity(const glm::vec3& point) {
@@ -155,6 +165,44 @@ public:
 
     unsigned int getTexture() const {
         return textures_loaded[0].id;
+    }
+
+    void move(glm::vec3 &newMousePoint, glm::vec3 &lastMousePoint) {
+        std::cout << "move" << std::endl;
+        glm::vec3 displacement = newMousePoint - lastMousePoint;
+        if (transformedMin.x + displacement.x < -roomWidth / 2.0f ||
+            transformedMax.x + displacement.x > roomWidth / 2.0f ||
+            transformedMin.z + displacement.z < -roomDepth / 2.0f ||
+            transformedMax.z + displacement.z > roomDepth / 2.0f || 
+            transformedMin.y + displacement.y < -roomHeight / 2.0f ||
+            transformedMax.y + displacement.y > roomHeight / 2.0f ) {
+            return;
+        }
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, offset);  // apply translation (offset)
+        model = glm::scale(model, scale);       // apply scaling
+        // Combine the transformation
+        model = model * glm::rotate(glm::mat4(1.0f), theta, direction); // No need for an additional translation in this case
+
+        glm::vec3 transformedMassCenter = glm::vec3(model * glm::vec4(0.0f, massCenter, 0.0f, 1.0f)); // 变换点
+
+        if (newMousePoint.y < transformedMassCenter.y) {
+            std::cout << "trans" << std::endl;
+            offset.x += displacement.x;
+            offset.z += displacement.z;
+        }
+        else {
+            std::cout << "旋转 " << std::endl;          
+            this->direction = normalize(cross(glm::vec3(0.0f, 1.0f, 0.0f),glm::vec3(displacement.x, 0.0f, displacement.z)));
+            glm::vec3 arm = newMousePoint - transformedMassCenter;
+            // arm = arm - dot(arm, direction) * direction;
+            // displacement = displacement - dot(displacement, direction) * direction;
+            // displacement = displacement - dot(displacement, arm) * arm / glm::length(arm);
+            float theta_del = glm::length(displacement) / (glm::length(arm)+5.0f);
+            std::cout << theta_del;
+            theta += theta_del;
+        }
+        updateTransformedBoundingBox();
     }
 
 private:
@@ -363,8 +411,6 @@ private:
         transformedMin = actualMin;
         transformedMax = actualMax;
     }
-
-
 };
 
 
