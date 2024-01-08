@@ -58,7 +58,7 @@ bool isDragging = false;
 bool isBallsGenerated = false;
 
 // camera
-Camera camera(glm::vec3(-5.0f, 0.0f, 25.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 25.0f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -170,7 +170,7 @@ int main()
 
     particleGenerator = new ParticleGenerator("./texture/fire.jpg", particleCount);
     // Initialize EmitterState with start position, velocity, and dampening
-    emitterState = new EmitterState(glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(-4.0f, 0.0f, 0.0f), 1.0f);
+    emitterState = new EmitterState(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -7.0f), 1.0f);
 
 
 
@@ -795,22 +795,40 @@ void collision_detection_fire() {
     float backWall = -roomDepth / 2.0f;
 
     // 检测碰撞并调整速度
-    if ((minBox.x <= leftWall && vel.x < 0) || (maxBox.x >= rightWall && vel.x > 0)) {
+    if (minBox.x <= leftWall && vel.x < 0) {
         emitterState->Velocity.x = -vel.x * e_wall; // 反弹
         emitterState->Velocity.y *= (1 - friction_wall); // 摩擦
         emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        particleGenerator->createSparks(*emitterState, 10, glm::vec3(0.0f), true);
         return;
     }
-    if (minBox.y <= floor && vel.y < 0 || maxBox.y >= ceiling && vel.y > 0) { // 地板和天花板
+    if (maxBox.x >= rightWall && vel.x > 0) {
+        emitterState->Velocity.x = -vel.x * e_wall; // 反弹
+        emitterState->Velocity.y *= (1 - friction_wall); // 摩擦
+        emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        particleGenerator->createSparks(*emitterState, 10, glm::vec3(0.0f), false);
+        return;
+    }
+    if (minBox.y <= floor && vel.y < 0 ) { // 地板和天花板
         emitterState->Velocity.y = -vel.y * e_wall; // 反弹
         emitterState->Velocity.x *= (1 - friction_wall); // 摩擦
         emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        particleGenerator->createSparks(*emitterState, 10, glm::vec3(0.0f), true);
+        return;
+    }
+
+    if (maxBox.y >= ceiling && vel.y > 0) { // 地板和天花板
+        emitterState->Velocity.y = -vel.y * e_wall; // 反弹
+        emitterState->Velocity.x *= (1 - friction_wall); // 摩擦
+        emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        particleGenerator->createSparks(*emitterState, 10, glm::vec3(0.0f), false);
         return;
     }
     if (minBox.z <= backWall && vel.z < 0) { // 后墙
         emitterState->Velocity.z = -vel.z * e_wall; // 反弹
         emitterState->Velocity.x *= (1 - friction_wall); // 摩擦
         emitterState->Velocity.y *= (1 - friction_wall); // 摩擦
+        particleGenerator->createSparks(*emitterState, 10, glm::vec3(0.0f), true);
         return;
     }
 

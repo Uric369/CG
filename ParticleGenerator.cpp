@@ -183,3 +183,36 @@ unsigned int ParticleGenerator::loadTexture(const char* path)
 
     return textureID;
 }
+
+
+void ParticleGenerator::createSparks(EmitterState& state, unsigned int numberOfSparks, glm::vec3 offset, bool isAdd)
+{
+    for (unsigned int i = 0; i < numberOfSparks; ++i)
+    {
+        int unusedParticle = this->firstUnusedParticle();
+        Particle& spark = this->particles[amount - numberOfSparks + i];
+
+        // 随机方向和速度
+        float spread = 3.0f;
+        glm::vec3 randomDir = glm::vec3(
+            (rand() % 50 - 100) / 50.0f * spread,
+            (rand() % 50 - 100) / 50.0f * spread,
+            (rand() % 50 - 100) / 50.0f * spread
+        );
+        if (isAdd) spark.Velocity = state.Velocity * 0.2f + randomDir;
+        else spark.Velocity = state.Velocity * 0.2f - randomDir;
+
+        // 较短的生命周期
+        spark.Life = 0.7f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (0.3f - 0.1f)));
+
+        // 较小的大小
+        // spark.Size = glm::vec3(0.1f, 0.1f, 0.1f);
+
+        // 明亮的颜色
+        float brightness = 0.5f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / 0.5f));
+        spark.Color = glm::vec4(brightness, brightness, brightness, 1.0f);
+
+        // 设置初始位置
+        spark.Position = state.Position + offset;
+    }
+}
