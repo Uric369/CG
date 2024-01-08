@@ -49,6 +49,7 @@ public:
     void Update(float dt, EmitterState& state, unsigned int newParticles, glm::vec3 offset = glm::vec3(0.0f, 0.0f, 0.0f));
     // render all particles
     void Draw(Shader &shader);
+    void createSparks(EmitterState& state, unsigned int numberOfSparks, glm::vec3 offset, bool isAdd);
 private:
     // state
     std::vector<Particle> particles;
@@ -64,6 +65,7 @@ private:
     void respawnParticle(Particle& particle, EmitterState& state, glm::vec3 offset = glm::vec3(0.0f, 0.0f, 0.0f));
 
     unsigned int loadTexture(const char* path);
+   
 };
 
 #endif

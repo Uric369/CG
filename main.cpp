@@ -39,6 +39,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 void dragModel();
 void collision_detection_fire();
+void generateFire();
 
 ParticleGenerator *particleGenerator;
 // Initialize EmitterState with start position, velocity, and dampening
@@ -56,6 +57,7 @@ glm::vec3 newMousePoint;
 glm::vec3 lastMousePoint;
 bool isDragging = false;
 bool isBallsGenerated = false;
+bool isFireGenerated = false;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 25.0f));
@@ -168,9 +170,6 @@ int main()
 
     // Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
 
-    particleGenerator = new ParticleGenerator("./texture/fire.jpg", particleCount);
-    // Initialize EmitterState with start position, velocity, and dampening
-    emitterState = new EmitterState(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -7.0f), 1.0f);
 
 
 
@@ -306,13 +305,15 @@ int main()
             }
         }
 
-        collision_detection_fire();
-        particleGenerator->Update(deltaTime, *emitterState, particleCount, glm::vec3(0.0f));
-        particleShader.use();
-        particleShader.setMat4("projection", projection);
-        particleShader.setMat4("model", glm::mat4(1.0f)); // Replace with your actual model matrix
-        particleShader.setMat4("view", view);
-        particleGenerator->Draw(particleShader);
+        if (isFireGenerated) {
+            collision_detection_fire();
+            particleGenerator->Update(deltaTime, *emitterState, particleCount, glm::vec3(0.0f));
+            particleShader.use();
+            particleShader.setMat4("projection", projection);
+            particleShader.setMat4("model", glm::mat4(1.0f)); // Replace with your actual model matrix
+            particleShader.setMat4("view", view);
+            particleGenerator->Draw(particleShader);
+        }
 
         lightShader.use();
         lightShader.setVec3("aPos", lightPos);
@@ -368,6 +369,9 @@ void processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && !isBallsGenerated) {
         generateRandomBalls(ballCount);
         isBallsGenerated = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && !isBallsGenerated) {
+        generateFire();
     }
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
@@ -832,4 +836,14 @@ void collision_detection_fire() {
         return;
     }
 
+}
+
+
+void generateFire() {
+    if (!isFireGenerated) {
+        particleGenerator = new ParticleGenerator("./texture/fire.jpg", particleCount);
+        // Initialize EmitterState with start position, velocity, and dampening
+        emitterState = new EmitterState(glm::vec3(4.0f, 3.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f), 1.0f);
+        isFireGenerated = true;
+    }
 }
