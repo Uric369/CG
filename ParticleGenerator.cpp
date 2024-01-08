@@ -139,7 +139,7 @@ void ParticleGenerator::respawnParticle(Particle& particle, EmitterState& state,
     // std::cout << "random: " << random << std::endl;
     std::cout << "particle.Position: " << particle.Position.x << " " << particle.Position.y << " " << particle.Position.z << std::endl;
     particle.Color = glm::vec4(rColor, rColor, rColor, 1.0f);
-    particle.Life = 1.0f;
+    particle.Life = 0.2f;
     random_x = (((rand() % 100) - 200)) / 200.0f;
     random_y = (((rand() % 100) - 200)) / 100.0f;
     random_z = (((rand() % 100) - 200)) / 200.0f;

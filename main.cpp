@@ -38,6 +38,12 @@ void collision_detection_wall(Ball& ball, Room &room);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 void dragModel();
+void collision_detection_fire();
+
+ParticleGenerator *particleGenerator;
+// Initialize EmitterState with start position, velocity, and dampening
+EmitterState *emitterState;
+
 
 // settings
 const unsigned int SCR_WIDTH = 2000;
@@ -162,10 +168,10 @@ int main()
 
     // Ball ball(glm::vec3(-4.0f, 7.0f, 4.0f), glm::vec3(0.0f, -6.0f, 0.0f), 1.0f, "./ball.png");
 
-
-    ParticleGenerator particleGenerator("./texture/fire.jpg", particleCount);
+    particleGenerator = new ParticleGenerator("./texture/fire.jpg", particleCount);
     // Initialize EmitterState with start position, velocity, and dampening
-    EmitterState emitterState(glm::vec3(-4.0f, 4.0f, 4.0f), glm::vec3(2.0f, 0.0f, 0.0f), 1.0f);
+    emitterState = new EmitterState(glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(-4.0f, 0.0f, 0.0f), 1.0f);
+
 
 
     // load textures
@@ -300,12 +306,13 @@ int main()
             }
         }
 
-        particleGenerator.Update(deltaTime, emitterState, particleCount, glm::vec3(0.0f));
+        collision_detection_fire();
+        particleGenerator->Update(deltaTime, *emitterState, particleCount, glm::vec3(0.0f));
         particleShader.use();
         particleShader.setMat4("projection", projection);
         particleShader.setMat4("model", glm::mat4(1.0f)); // Replace with your actual model matrix
         particleShader.setMat4("view", view);
-        particleGenerator.Draw(particleShader);
+        particleGenerator->Draw(particleShader);
 
         lightShader.use();
         lightShader.setVec3("aPos", lightPos);
@@ -769,4 +776,42 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
         lastMousePoint = newMousePoint;
         return;
     }
+}
+
+void collision_detection_fire() {
+    glm::vec3 pos = emitterState->Position;
+    glm::vec3 vel = emitterState->Velocity;
+    float radius = 0.5f;
+
+    // 计算边界盒
+    glm::vec3 minBox = pos - glm::vec3(radius);
+    glm::vec3 maxBox = pos + glm::vec3(radius);
+
+    // 墙壁坐标
+    float leftWall = -roomWidth / 2.0f;
+    float rightWall = roomWidth / 2.0f;
+    float floor = -roomHeight / 2.0f;
+    float ceiling = roomHeight / 2.0f;
+    float backWall = -roomDepth / 2.0f;
+
+    // 检测碰撞并调整速度
+    if ((minBox.x <= leftWall && vel.x < 0) || (maxBox.x >= rightWall && vel.x > 0)) {
+        emitterState->Velocity.x = -vel.x * e_wall; // 反弹
+        emitterState->Velocity.y *= (1 - friction_wall); // 摩擦
+        emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        return;
+    }
+    if (minBox.y <= floor && vel.y < 0 || maxBox.y >= ceiling && vel.y > 0) { // 地板和天花板
+        emitterState->Velocity.y = -vel.y * e_wall; // 反弹
+        emitterState->Velocity.x *= (1 - friction_wall); // 摩擦
+        emitterState->Velocity.z *= (1 - friction_wall); // 摩擦
+        return;
+    }
+    if (minBox.z <= backWall && vel.z < 0) { // 后墙
+        emitterState->Velocity.z = -vel.z * e_wall; // 反弹
+        emitterState->Velocity.x *= (1 - friction_wall); // 摩擦
+        emitterState->Velocity.y *= (1 - friction_wall); // 摩擦
+        return;
+    }
+
 }
