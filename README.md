@@ -25,10 +25,12 @@
 - 实现点光源光照、阴影效果
 ### 不倒翁交互
 - 鼠标左键拖动不倒翁，若点击区域在重心以下位移，如果在重心以上倾斜晃动
+  
     <img width="401" alt="2" src="https://github.com/Uric369/CG-project/assets/96730554/a30d91f3-a58e-4a7a-ab60-28a0ee04cd60">
 
 ### 物理仿真及碰撞检测
 - 按键S控制场景中随机出现30个小球向各个方向弹射，初始都是白色小球，碰撞到物体会变外观，做物理仿真，阴影随物体运动发生变化
+  
     <img width="403" alt="3" src="https://github.com/Uric369/CG-project/assets/96730554/d0b0b330-2d30-4ed5-a127-2c85aee16726">
 
 ### 粒子系统火焰
